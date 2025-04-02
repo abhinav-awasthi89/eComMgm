@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Form</title>
+    <script>
+        function validateForm() {
+            let inputs = document.querySelectorAll("input:not([type=radio])");
+            
+            for (let input of inputs) {
+                let value = input.value.trim();
+                if (value === "") {
+                    alert(input.name + " is required.");
+                    return false;
+                }
+
+                // Email validation
+                if (input.type === "email" && !/^\S+@\S+\.\S+$/.test(value)) {
+                    alert("Invalid email format.");
+                    return false;
+                }
+
+                // Phone number validation (digits only, 10-15 length)
+                if (input.name.toLowerCase().includes("phone") && !/^\d{10,15}$/.test(value)) {
+                    alert("Invalid phone number. Must be 10-15 digits.");
+                    return false;
+                }
+            }
+
+            // Password validation (min 6 chars, must match confirm password)
+            let password = document.querySelector('input[name="password"]');
+            let confirmPassword = document.querySelector('input[name="cp"]');
+            if (password && confirmPassword) {
+                if (password.value.length < 6) {
+                    alert("Password must be at least 6 characters.");
+                    return false;
+                }
+                if (password.value !== confirmPassword.value) {
+                    alert("Passwords do not match.");
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    </script>
+</head>
+<body>
+    <h1>Customer Form</h1>
+    <form method="post" action="/submit" onsubmit="return validateForm()">
+        {% for field in metadata %}
+        <label>{{ field.name }}:</label>
+        {% if field.type=="number" %}
+            <input type="number" name="{{ field.name }}">
+        {% elif field.type=="text" %}
+            <input type="text" name="{{ field.name }}">
+        {% elif field.type=="password" %}
+            <input type="password" name="{{ field.name }}">
+            Confirm Password:
+            <input type="password" name="cp">
+        {% elif field.type=="email" %}
+            <input type="email" name="{{ field.name }}">
+        {% elif field.type=="radio" %}
+            {% if field.name=="Gender" %}
+                <input type="radio" name="{{ field.name }}" value="M">M
+                <input type="radio" name="{{ field.name }}" value="F">F
+            {% else %}
+                <input type="radio" name="{{ field.name }}" value="Y">Y
+                <input type="radio" name="{{ field.name }}" value="N">N
+            {% endif %}
+        {% endif %}
+        <br><br>
+        {% endfor %}
+        <input type="submit" value="Submit" name="submit">
+    </form>
+</body>
+</html>

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Display Records</title>
+</head>
+<body>
+    <h1>Records in {{ tablename }}</h1>
+    <table border="1">
+        <thead>
+            <tr>
+                {% for key in records[0].keys() %}
+                <th>{{ key }}</th>
+                {% endfor %}
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for record in records %}
+            <tr>
+                {% for value in record.values() %}
+                <td>{{ value }}</td>
+                {% endfor %}
+                <td>
+                    <a href="{{ url_for('Update', tablename=tablename, record_id=record[tablename + 'Id']) }}">Update</a>
+                    <a href="{{ url_for('Delete', tablename=tablename, record_id=record[tablename + 'Id']) }}">Delete</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <nav>
+        <ul class="pagination">
+            {% for p in range(1, total_pages + 1) %}
+                <li class="page-item {% if p == page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('Display', tablename=tablename, page=p) }}">{{ p }}</a>
+                </li>
+            {% endfor %}
+        </ul>
+    </nav>
+</body>
+</html>

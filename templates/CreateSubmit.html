@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <title>Customer Form</title>
+    <script>
+        function validateForm() {
+            let inputs = document.querySelectorAll("input:not([type=radio])");
+            
+            for (let input of inputs) {
+                let value = input.value.trim();
+                if (value === "") {
+                    alert(input.name + " is required.");
+                    return false;
+                }
+
+                // Email validation
+                if (input.type === "email" && !/^\S+@\S+\.\S+$/.test(value)) {
+                    alert("Invalid email format.");
+                    return false;
+                }
+
+                // Phone number validation (digits only, 10-15 length)
+                if (input.name.toLowerCase().includes("phone") && !/^\d{10,15}$/.test(value)) {
+                    alert("Invalid phone number. Must be 10-15 digits.");
+                    return false;
+                }
+            }
+
+            // Password validation (min 6 chars, must match confirm password)
+            let password = document.querySelector('input[name="password"]');
+            let confirmPassword = document.querySelector('input[name="cp"]');
+            if (password && confirmPassword) {
+                if (password.value.length < 6) {
+                    alert("Password must be at least 6 characters.");
+                    return false;
+                }
+                if (password.value !== confirmPassword.value) {
+                    alert("Passwords do not match.");
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    </script>
+</head>
+<body>
+    <h1 class="text-center mt-4">Customer Form</h1>
+    <div class="form-container">
+        <form method="post" action="{{ url_for('CreateSubmit', tablename=metadata[-1]['tablename']) }}" onsubmit="return validateForm()">
+            {% for field in metadata %}
+            <div class="mb-3">
+                <label class="form-label">{{ field.name }}:</label>
+                {% if field.type == "number" %}
+                    <input type="number" class="form-control" name="{{ field.name }}">
+                {% elif field.type == 'FK' %}
+                    <select class="form-select" name="{{ field.name }}">
+                        {% for r in field.FK %}
+                        <option value="{{ r.Id }}">{{ r.Name }}</option>
+                        {% endfor %}
+                    </select>
+                {% elif field.type == "text" %}
+                    <input type="text" class="form-control" name="{{ field.name }}">
+                {% elif field.type == "password" %}
+                    <input type="password" class="form-control" name="{{ field.name }}">
+                    <label class="form-label mt-2">Confirm Password:</label>
+                    <input type="password" class="form-control" name="cp">
+                {% elif field.type == "email" %}
+                    <input type="email" class="form-control" name="{{ field.name }}">
+                {% elif field.type == "radio" %}
+                    <div>
+                        {% if field.name == "Gender" %}
+                            <input type="radio" name="{{ field.name }}" value="M"> M
+                            <input type="radio" name="{{ field.name }}" value="F"> F
+                        {% else %}
+                            <input type="radio" name="{{ field.name }}" value="Y"> Y
+                            <input type="radio" name="{{ field.name }}" value="N"> N
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+            <div class="text-center">
+                <input type="submit" class="btn btn-primary" value="Submit" name="submit">
+            </div>
+        </form>
+    </div>
+</body>
+</html>
