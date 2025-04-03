@@ -46,16 +46,16 @@
                             {% set count = tables | length %}
                             {% set colcnt = 4 %}
                             {% set rowsize = (count + colcnt - 1) // colcnt %}
-                            {% set rem = count % colcnt %}
-                            {% set rc = rowsize %}
-                            {% set j = 0 %}
-
                             {% for i in range(colcnt) %}
                                 <li>
                                     <ul>
                                         {% for j in range(rowsize) %}
                                             {% if (i * rowsize + j) < count %}
-                                                <li><a href="{{ url_for('Entry', tablename=tables[i * rowsize + j]['TABLE_NAME']) }}">{{ tables[i * rowsize + j]['TABLE_NAME'] }}</a></li>
+                                                <li>
+                                                    <a class="dropdown-item" href="{{ url_for('Entry', tablename=tables[i * rowsize + j]['TABLE_NAME']) }}">
+                                                        {{ tables[i * rowsize + j]['TABLE_NAME'] }}
+                                                    </a>
+                                                </li>
                                             {% endif %}
                                         {% endfor %}
                                     </ul>
@@ -73,16 +73,16 @@
                             {% set count = tables | length %}
                             {% set colcnt = 4 %}
                             {% set rowsize = (count + colcnt - 1) // colcnt %}
-                            {% set rem = count % colcnt %}
-                            {% set rc = rowsize %}
-                            {% set j = 0 %}
-
                             {% for i in range(colcnt) %}
                                 <li>
                                     <ul>
                                         {% for j in range(rowsize) %}
                                             {% if (i * rowsize + j) < count %}
-                                                <li><a href="#">{{ tables[i * rowsize + j]['TABLE_NAME'] }}</a></li>
+                                                <li>
+                                                    <a class="dropdown-item" href="{{ url_for('Update', tablename=tables[i * rowsize + j]['TABLE_NAME'], record_id=1) }}">
+                                                        {{ tables[i * rowsize + j]['TABLE_NAME'] }}
+                                                    </a>
+                                                </li>
                                             {% endif %}
                                         {% endfor %}
                                     </ul>
@@ -100,16 +100,16 @@
                             {% set count = tables | length %}
                             {% set colcnt = 4 %}
                             {% set rowsize = (count + colcnt - 1) // colcnt %}
-                            {% set rem = count % colcnt %}
-                            {% set rc = rowsize %}
-                            {% set j = 0 %}
-
                             {% for i in range(colcnt) %}
                                 <li>
                                     <ul>
                                         {% for j in range(rowsize) %}
                                             {% if (i * rowsize + j) < count %}
-                                                <li><a href="#">{{ tables[i * rowsize + j]['TABLE_NAME'] }}</a></li>
+                                                <li>
+                                                    <a class="dropdown-item" href="{{ url_for('Display', tablename=tables[i * rowsize + j]['TABLE_NAME']) }}">
+                                                        {{ tables[i * rowsize + j]['TABLE_NAME'] }}
+                                                    </a>
+                                                </li>
                                             {% endif %}
                                         {% endfor %}
                                     </ul>
@@ -127,16 +127,16 @@
                             {% set count = tables | length %}
                             {% set colcnt = 4 %}
                             {% set rowsize = (count + colcnt - 1) // colcnt %}
-                            {% set rem = count % colcnt %}
-                            {% set rc = rowsize %}
-                            {% set j = 0 %}
-
                             {% for i in range(colcnt) %}
                                 <li>
                                     <ul>
                                         {% for j in range(rowsize) %}
                                             {% if (i * rowsize + j) < count %}
-                                                <li><a href="#">{{ tables[i * rowsize + j]['TABLE_NAME'] }}</a></li>
+                                                <li>
+                                                    <a class="dropdown-item" href="{{ url_for('List', tablename=tables[i * rowsize + j]['TABLE_NAME']) }}">
+                                                        {{ tables[i * rowsize + j]['TABLE_NAME'] }}
+                                                    </a>
+                                                </li>
                                             {% endif %}
                                         {% endfor %}
                                     </ul>
@@ -154,16 +154,16 @@
                             {% set count = tables | length %}
                             {% set colcnt = 4 %}
                             {% set rowsize = (count + colcnt - 1) // colcnt %}
-                            {% set rem = count % colcnt %}
-                            {% set rc = rowsize %}
-                            {% set j = 0 %}
-
                             {% for i in range(colcnt) %}
                                 <li>
                                     <ul>
                                         {% for j in range(rowsize) %}
                                             {% if (i * rowsize + j) < count %}
-                                                <li><a href="#" >{{ tables[i * rowsize + j]['TABLE_NAME'] }}</a></li>
+                                                <li>
+                                                    <a class="dropdown-item" href="{{ url_for('Delete', tablename=tables[i * rowsize + j]['TABLE_NAME'], record_id=1) }}">
+                                                        {{ tables[i * rowsize + j]['TABLE_NAME'] }}
+                                                    </a>
+                                                </li>
                                             {% endif %}
                                         {% endfor %}
                                     </ul>
@@ -173,7 +173,7 @@
                     </li>
                 </ul>
 
-                <a class="btn btn-primary ms-auto" href="#">Logout</a>
+                <a class="btn btn-primary ms-auto" href="{{ url_for('logout') }}">Logout</a>
             </div>
         </div>
     </nav>

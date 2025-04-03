@@ -54,6 +54,13 @@ def login():
 
     return render_template("login.html")
 
+@app.route("/logout")
+def logout():
+    # Clear the session
+    session.clear()
+    # Redirect to the login page
+    return redirect(url_for("login"))
+
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -218,8 +225,19 @@ def List(tablename):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     try:
-        cursor.execute(f"SELECT * FROM {tablename}")
+        # Fetch the first two columns of the table
+        cursor.execute(f"DESCRIBE {tablename}")
+        columns = cursor.fetchall()
+        if len(columns) < 2:
+            return render_template("error.html", message=f"Table {tablename} does not have enough columns.")
+
+        first_column = columns[0]["Field"]
+        second_column = columns[1]["Field"]
+
+        # Fetch data for the first two columns
+        cursor.execute(f"SELECT {first_column}, {second_column} FROM {tablename}")
         records = cursor.fetchall()
+
     except mysql.connector.Error as err:
         print(f"Error: {err}")
         return render_template("error.html", message=f"Table {tablename} does not exist.")
@@ -227,7 +245,13 @@ def List(tablename):
         cursor.close()
         conn.close()
 
-    return render_template("list.html", records=records, tablename=tablename)
+    return render_template(
+        "list.html",
+        records=records,
+        tablename=tablename,
+        first_column=first_column,
+        second_column=second_column
+    )
 
 
 if __name__ == '__main__':
