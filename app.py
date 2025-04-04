@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 import mysql.connector
+from mysql.connector import Error
 import os
 from dotenv import load_dotenv
 from functools import wraps
@@ -128,27 +129,53 @@ def Entry(tablename):
 def CreateSubmit(tablename):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute(f'DESCRIBE {tablename}')
-    data = cursor.fetchall()
+    try:
+        cursor.execute(f'DESCRIBE {tablename}')
+        data = cursor.fetchall()
 
-    fields = [] 
-    values = []  
+        fields = [] 
+        values = []  
 
-    for dt in data:
-        if dt['Key'] == 'PRI' or 'datetime' in dt['Type']:  
-            continue
-        fields.append(dt['Field'])
-        values.append(request.form.get(dt['Field']))  
+        for index, dt in enumerate(data):
+            if dt['Key'] == 'PRI' or 'datetime' in dt['Type']:  
+                continue
 
-    placeholders = ", ".join(["%s"] * len(fields))
-    query = f"INSERT INTO {tablename} ({', '.join(fields)}) VALUES ({placeholders})"
+            field_name = dt['Field']
+            field_value = request.form.get(field_name)
 
-    cursor.execute(query, values)
-    conn.commit()  
+            # Check if the column is a "third column" (index % 3 == 2)
+            if index % 3 == 2:
+                # Assuming the third column is a primary key of some other table
+                referenced_table = field_name[:-2]  # Remove 'Id' from the field name
+                referenced_field = field_name  # The foreign key field
 
-    cursor.close()
-    conn.close()
-    return redirect(url_for('Entry',tablename=tablename))  
+                # Check if the value exists in the referenced table
+                cursor.execute(f"SELECT * FROM {referenced_table} WHERE {referenced_field} = %s", (field_value,))
+                fk_record = cursor.fetchone()
+
+                if not fk_record:
+                    # Insert the value into the referenced table if it doesn't exist
+                    cursor.execute(f"INSERT INTO {referenced_table} ({referenced_field}) VALUES (%s)", (field_value,))
+                    conn.commit()
+
+            # If the column is not a "third column" or foreign key, just add it to the fields and values
+            fields.append(field_name)
+            values.append(field_value)
+
+        # Insert the main record into the table
+        placeholders = ", ".join(["%s"] * len(fields))
+        query = f"INSERT INTO {tablename} ({', '.join(fields)}) VALUES ({placeholders})"
+        cursor.execute(query, values)
+        conn.commit()
+
+    except Error as e:
+        print(f"Error: {e}")
+        return render_template("error.html", message="An error occurred while creating the record.")
+    finally:
+        cursor.close()
+        conn.close()
+
+    return redirect(url_for('Entry', tablename=tablename))
 
 @app.route("/Update/<tablename>/<record_id>")
 def Update(tablename, record_id):
