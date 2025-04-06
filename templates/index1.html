@@ -79,7 +79,7 @@
                                         {% for j in range(rowsize) %}
                                             {% if (i * rowsize + j) < count %}
                                                 <li>
-                                                    <a class="dropdown-item" href="{{ url_for('Update', tablename=tables[i * rowsize + j]['TABLE_NAME'], record_id=1) }}">
+                                                    <a class="dropdown-item" href="{{ url_for('Update', tablename=tables[i * rowsize + j]['TABLE_NAME']) }}">
                                                         {{ tables[i * rowsize + j]['TABLE_NAME'] }}
                                                     </a>
                                                 </li>

@@ -63,6 +63,7 @@ pyserial==3.5
 python-apt==2.7.7+ubuntu4
 python-dateutil==2.8.2
 python-debian==0.1.49+ubuntu2
+python-dotenv
 pytz==2024.1
 pyxdg==0.28
 PyYAML==6.0.1
@@ -84,3 +85,4 @@ wheel==0.42.0
 xdg==5
 xkit==0.0.0
 zipp==1.0.0
+mariadb

@@ -1,0 +1,9 @@
+PersonType
+Unit
+Material
+Shape
+Color
+Currency
+Company
+ProductCategory
+Continent
