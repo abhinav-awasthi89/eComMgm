@@ -374,13 +374,12 @@ def Undelete(tablename):
 
         # Fetch the details of the selected record
         record_id = request.args.get("record_id")
-        print("Record ID:", record_id)  # Debugging: Check record_id
+        
         record_details = None
         if record_id:
             cursor.execute(f"SELECT * FROM `{tablename}` WHERE `{primary_key_column}` = %s", (record_id,))
             record_details = cursor.fetchone()
-            print("Record Details:", record_details)  # Debugging: Check fetched record details
-
+            
     except mysql.connector.Error as e:
         flash(f"Error: {e}", "danger")
         records = []
@@ -390,6 +389,46 @@ def Undelete(tablename):
         conn.close()
 
     return render_template("undelete.html", tablename=tablename, records=records, record_details=record_details, primary_key_column=primary_key_column, display_column=display_column)
+
+@app.route("/UndeleteSubmit/<tablename>", methods=["POST"])
+def UndeleteSubmit(tablename):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        # Dynamically determine the primary key column
+        primary_key_column = f"{tablename}Id"  # Primary key follows the convention <TableName>Id
+
+        # Fetch form data
+        record_id = request.form.get("record_id")  # Fetch the selected record ID
+        is_deleted = request.form.get("IsDeleted")  # Fetch the IsDeleted value
+
+        # Validate record_id
+        if not record_id:
+            flash("Please select a record to recover.", "danger")
+            return redirect(url_for("Undelete", tablename=tablename))
+
+        # Map "Yes" to "Y" and "No" to "N"
+        is_deleted_value = "N" if is_deleted == "No" else "Y"
+
+        # If the user sets IsDeleted to 'N' (recover the record)
+        if is_deleted_value == "N":
+            try:
+                # Update the record to set IsDeleted = 'N'
+                cursor.execute(f"UPDATE `{tablename}` SET `IsDeleted` = %s WHERE `{primary_key_column}` = %s", (is_deleted_value, record_id))
+                conn.commit()
+                flash("Record recovered successfully.", "success")
+            except mysql.connector.Error as e:
+                flash(f"Error: {e}", "danger")
+        else:
+            flash("No changes made.", "info")
+
+    except mysql.connector.Error as e:
+        flash(f"Error: {e}", "danger")
+    finally:
+        cursor.close()
+        conn.close()
+
+    return redirect(url_for("Undelete", tablename=tablename))
 
 @app.route("/Display/<tablename>")
 def Display(tablename):

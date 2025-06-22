@@ -10,11 +10,10 @@
     <title>Recover Record in {{ tablename }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
-<p>Debug Records: {{ records }}</p>
-<p>Debug Record ID: {{ request.args.get('record_id') }}</p>
+
 <div class="container mt-5">
     <h1 class="text-center">Recover Record in {{ tablename }}</h1>
-    <form method="POST">
+    <form method="POST" action="{{ url_for('UndeleteSubmit', tablename=tablename) }}">
         <div class="mb-3">
             <label for="record_id" class="form-label">Select Record</label>
             <select class="form-select" name="record_id" id="record_id" required onchange="window.location.href='?record_id=' + this.value;">
@@ -26,7 +25,6 @@
                 {% endfor %}
             </select>
         </div>
-        <p>{{record_details}}</p>
 
         {% if record_details %}
         <div class="mb-3">
@@ -44,7 +42,7 @@
                 <option value="Yes">Yes</option>
             </select>
         </div>
-        <button type="submit" class="btn btn-success">Recover</button>
+        <button type="submit" class="btn btn-success">Submit</button>
         {% endif %}
     </form>
 </div>
