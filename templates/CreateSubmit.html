@@ -1,10 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <title>Create Record in {{ metadata[-1]['tablename'] }}</title>
+    <title>Create Record in {{ tablename }}</title>
     <script>
         function validateForm() {
             let inputs = document.querySelectorAll("input:not([type=radio])");
@@ -48,63 +50,49 @@
     </script>
 </head>
 <body>
-    <h1 class="text-center mt-4">Create Record in {{ metadata[-1]['tablename'] }}</h1>
+    <h1 class="text-center mt-4">Create Record in {{ tablename }}</h1>
     <div class="form-container">
-        <form method="post" action="{{ url_for('CreateSubmit', tablename=metadata[-1]['tablename']) }}" onsubmit="return validateForm()">
+        <form method="POST" action="{{ url_for('CreateSubmit', tablename=tablename) }}" onsubmit="return validateForm()">
             {% for field in metadata %}
-            {% if field.name not in ['IsDeleted', 'RecordCreationLogin', 'LastUpdationTimeStamp', 'LastUpdationLogin'] %}
-            <div class="mb-3">
-                <label class="form-label">{{ field.name }}:</label>
-                {% if field.type == "dropdown" %}
-                    <!-- Dropdown for foreign key columns -->
-                    <select class="form-select" name="{{ field.name }}">
-                        {% for option in field.FK %}
-                        <option value="{{ option.Id }}">{{ option.Name }}</option>
+                <label for="{{ field.name }}">{{ field.name }}</label>
+                {% if field.FK %}
+                    <select name="{{ field.name }}" id="{{ field.name }}">
+                        <option value="" disabled selected>Select {{ field.name }}</option>
+                        {% for fk in field.FK %}
+                            <option value="{{ fk.Name }}">{{ fk.Name }}</option> <!-- Name is submitted -->
                         {% endfor %}
                     </select>
-                {% elif field.type == "int" %}
-                    <!-- Input for integer columns -->
-                    <input type="number" class="form-control" name="{{ field.name }}">
-                {% elif field.type == "decimal" %}
-                    <!-- Input for decimal columns -->
-                    <input type="number" step="0.01" class="form-control" name="{{ field.name }}">
-                {% elif field.type == "varchar" %}
-                    <!-- Input for text columns -->
-                    <input type="text" class="form-control" name="{{ field.name }}">
-                {% elif field.type == "password" %}
-                    <!-- Input for password columns -->
-                    <input type="password" class="form-control" name="{{ field.name }}">
-                    <label class="form-label mt-2">Confirm Password:</label>
-                    <input type="password" class="form-control" name="cp">
-                {% elif field.type == "email" %}
-                    <!-- Input for email columns -->
-                    <input type="email" class="form-control" name="{{ field.name }}">
-                {% elif field.type == "radio" %}
-                    <!-- Radio buttons for boolean or enum columns -->
-                    <div>
-                        {% if field.name == "Gender" %}
-                            <input type="radio" name="{{ field.name }}" value="M"> M
-                            <input type="radio" name="{{ field.name }}" value="F"> F
-                        {% else %}
-                            <input type="radio" name="{{ field.name }}" value="Y"> Y
-                            <input type="radio" name="{{ field.name }}" value="N"> N
-                        {% endif %}
-                    </div>
-                {% elif field.type == "enum" %}
-                    <!-- Dropdown for enum columns -->
-                    <select class="form-select" name="{{ field.name }}">
+                    <br>
+                {% elif field.type == 'enum' %}
+                {% if field.len>5 %}
+                    <select name="{{ field.name }}" id="{{ field.name }}">
+                        <option value="" disabled selected>Select {{ field.name }}</option>
                         {% for option in field.enum_options %}
-                        <option value="{{ option }}">{{ option }}</option>
+                            <option value="{{ option }}">{{ option }}</option>
                         {% endfor %}
-                    </select>
+                {% else %}
+                {% for option in field.enum_options %}
+                            <input type="radio" name="{{field.name}}" id="{{field.name}}" value="{{option}}">{{option}}
+                        {% endfor %}
+
                 {% endif %}
-            </div>
-            {% endif %}
+                    </select>
+                    <br>
+                {% elif field.type == 'radio' %}
+                    <input type="radio" name="{{ field.name }}" id="{{ field.name }}" value="Y">Y
+                    <input type="radio" name="{{ field.name }}" id="{{ field.name }}" value="N">N
+                    <br>
+                {%elif field.type=='textarea' %}
+                <textarea name="{{field.name}}" id="{{field.name}}" rows="4" cols="50"></textarea>
+                <br>
+                {% else %}
+                    <input type="text" name="{{ field.name }}" id="{{ field.name }}">
+                {% endif %}
+                <br>
             {% endfor %}
-            <div class="text-center">
-                <input type="submit" class="btn btn-primary" value="Submit" name="submit">
-            </div>
+            <button type="submit">Submit</button>
         </form>
     </div>
 </body>
 </html>
+{% endblock %}

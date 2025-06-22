@@ -7,3 +7,8 @@ Currency
 Company
 ProductCategory
 Continent
+Country
+State
+District
+Locality
+ZipLocation

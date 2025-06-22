@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 import mysql.connector
 import os
 from dotenv import load_dotenv
@@ -18,6 +18,49 @@ users = {
     "user": {"password": "pass123", "role": "user"}
 }
 arr=['Entry','Update','Display','List','Delete'] #Crud 
+mariadb_data_types = [
+    # Numeric Data Types
+    [
+        ["TINYINT", "-128", "127", "1 byte"],
+        ["SMALLINT", "-32,768", "32,767", "2 bytes"],
+        ["MEDIUMINT", "-8,388,608", "8,388,607", "3 bytes"],
+        ["INT", "-2,147,483,648", "2,147,483,647", "4 bytes"],
+        ["BIGINT", "-9,223,372,036,854,775,808", "9,223,372,036,854,775,807", "8 bytes"],
+        ["DECIMAL", "Depends on precision", "Depends on precision", "Variable"],
+        ["FLOAT", "-3.402823466E+38", "3.402823466E+38", "4 bytes"],
+        ["DOUBLE", "-1.7976931348623157E+308", "1.7976931348623157E+308", "8 bytes"]
+    ],
+
+    # Date and Time Data Types
+    [
+        ["DATE", "1000-01-01", "9999-12-31", "3 bytes"],
+        ["DATETIME", "1000-01-01 00:00:00", "9999-12-31 23:59:59", "8 bytes"],
+        ["TIMESTAMP", "1970-01-01 00:00:01 UTC", "2038-01-19 03:14:07 UTC", "4 bytes"],
+        ["TIME", "-838:59:59", "838:59:59", "3 bytes"],
+        ["YEAR", "1901", "2155", "1 byte"]
+    ],
+
+    # String Data Types
+    [
+        ["CHAR", "1", "255", "1-255 bytes"],
+        ["VARCHAR", "1", "65535", "1-65535 bytes"],
+        ["TEXT", "1", "65535", "1-65535 bytes"],
+        ["TINYTEXT", "1", "255", "1-255 bytes"],
+        ["MEDIUMTEXT", "1", "16,777,215", "1-16 MB"],
+        ["LONGTEXT", "1", "4,294,967,295", "1-4 GB"],
+        ["BLOB", "1", "65535", "1-65535 bytes"],
+        ["TINYBLOB", "1", "255", "1-255 bytes"],
+        ["MEDIUMBLOB", "1", "16,777,215", "1-16 MB"],
+        ["LONGBLOB", "1", "4,294,967,295", "1-4 GB"]
+    ],
+
+    # Other Data Types
+    [
+        ["ENUM", "1", "65,535 values", "1-2 bytes"],
+        ["SET", "1", "64 members", "1-8 bytes"],
+        ["JSON", "N/A", "N/A", "Variable"]
+    ]
+]
 def get_db_connection():
     return mysql.connector.connect(
         host=os.getenv("DB_HOST", "localhost"),
@@ -26,17 +69,24 @@ def get_db_connection():
         database=os.getenv("DB_NAME", "ecom")
     )
 
-@app.route("/dashboard")
-def get_tables():
+@app.context_processor
+def inject_tables():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name <> 'Admin';")
-    data = cursor.fetchall()
-    print(data)  # Debugging: Print the fetched data to the console
-    cursor.close()
-    conn.close()
-    print("connected")
-    return render_template("index1.html", tables=data)
+    try:
+        # Fetch table names from the database
+        cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name <> 'Admin';")
+        tables=cursor.fetchall()
+    except mysql.connector.Error as e:
+        print(f"Error: {e}")
+        tables = []
+    finally:
+        cursor.close()
+        conn.close()
+
+    # Return the tables variable to be globally available in all templates
+    return {"tables": tables}
+
 
 @app.route("/", methods=["GET", "POST"])
 def login():
@@ -72,157 +122,113 @@ def admin_required(f):
 def dashboard():
     if "user" not in session:
         return redirect(url_for("login"))
-    return render_template("index1.html", username=session["user"])
+    return render_template("base.html", username=session["user"])
 
 def get_FKdata(table):
-    Id=table+'Id'
-    Name=table
+    Id = table + 'Id'
+    Name = table
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)  
-    cursor.execute(f"select {Name} as Name , {Id} as Id from {table}")
-    data = cursor.fetchall()
-    cursor.close()
-    conn.close()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute(f"SELECT {Name} AS Name, {Id} AS Id FROM {table}")
+        data = cursor.fetchall()  # Fully fetch results
+    finally:
+        cursor.close()
+        conn.close()
     return data
 
 def get_metadata(table):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute(f"DESCRIBE {table}")
-    data = cursor.fetchall()
-    cursor.close()
-    conn.close()
+    try:
+        cursor.execute(f"DESCRIBE `{table}`")
+        data = cursor.fetchall()
+    except mysql.connector.Error as e:
+        print(f"Error: {e}")
+        data = []
+    finally:
+        cursor.close()
+        conn.close()
 
-    # Read main tables from main.txt
     with open("main.txt", "r") as file:
-        main_tables = [line.strip().lower() for line in file.readlines()]
+        main_tables = [line.strip() for line in file.readlines()]
 
     meta = []
+    excluded_fields = ['IsDeleted', 'RecordCreationLogin', 'LastUpdationLogin']
 
-    # Check if the table is in main_tables
-    if table.lower() in main_tables:
-        # Process metadata for main tables
-        for dt in data:
-            if dt['Key'] == 'PRI' or 'datetime' in dt['Type']:
-                continue
+    for dt in data:
+        if dt['Key'] == 'PRI' or 'datetime' in dt['Type'] or dt['Field'] in excluded_fields:
+            continue
 
-            field_name = dt['Field']
-            input_type = 'varchar' if 'varchar' in dt['Type'] else 'int'
-            meta.append({'name': field_name, 'type': input_type, 'FK': None})
-    else:
-        # Process metadata for non-main tables
-        for dt in data:
-            if dt['Key'] == 'PRI' or 'datetime' in dt['Type']:
-                continue
+        field_name = dt['Field']
+        input_type = 'int'
 
-            field_name = dt['Field']
-            input_type = 'varchar'  # Default to varchar for text fields
-            fk_data = None
+        if 'Is' in dt['Field'] and dt['Type'] == 'varchar(1)':
+            input_type = 'radio'
+        elif 'varchar' in dt['Type']:
+            input_type = 'varchar'
+        elif 'text' in dt['Type']:
+            input_type = 'textarea'
+        elif 'enum' in dt['Type']:
+            input_type = 'enum'
+            enum_options = dt['Type'].strip('enum()').replace("'", "").split(',')
+            meta.append({'name': field_name, 'type': input_type, 'enum_options': enum_options, 'len': len(enum_options), 'FK': None})
+            continue
 
-            # Check if the column is a foreign key referencing a main table
-            if 'int' in dt['Type']:
-                input_type = 'int'
-                for main_table in main_tables:
-                    if main_table.lower() in field_name.lower():
-                        print(f"I am here, with values mainTable: {main_table} and field: {field_name}")
-                        # Extract the primary key column of the main table
-                        conn = get_db_connection()
-                        cursor = conn.cursor(dictionary=True)
-                        cursor.execute(f"DESCRIBE {main_table}")
-                        main_table_metadata = cursor.fetchall()
-                        cursor.close()
-                        conn.close()
+        fk_data = None
+        if 'int' in dt['Type']:
+            for main_table in main_tables:
+                if main_table in field_name:
+                    fk_data = get_FKdata(main_table)
+                    break
 
-                        main_table_primary_key = None
-                        for field in main_table_metadata:
-                            if field["Key"] == "PRI":
-                                main_table_primary_key = field["Field"]
-                                break
-
-                        # If the column matches the primary key of the main table
-                        if main_table_primary_key and main_table_primary_key.lower() in field_name.lower():
-                            input_type = 'dropdown'
-                            conn = get_db_connection()
-                            cursor = conn.cursor(dictionary=True)
-                            cursor.execute(f"SELECT {main_table_primary_key} AS Id, {main_table} AS Name FROM {main_table}")
-                            fk_data = cursor.fetchall()
-                            cursor.close()
-                            conn.close()
-                            break
-
-                        elif field_name.lower() in main_table_primary_key.lower():
-                            input_type = 'dropdown'
-                            conn = get_db_connection()
-                            cursor = conn.cursor(dictionary=True)
-                            cursor.execute(f"SELECT {main_table_primary_key} AS Id, {main_table} AS Name FROM {main_table}")
-                            fk_data = cursor.fetchall()
-                            cursor.close()
-                            conn.close()
-                            break
-
-            elif 'enum' in dt['Type']:
-                input_type = 'enum'
-                enum_options = dt['Type'].strip('enum()').replace("'", "").split(',')
-                meta.append({'name': field_name, 'type': input_type, 'enum_options': enum_options})
-                continue
-
-            meta.append({'name': field_name, 'type': input_type, 'FK': fk_data})
+        meta.append({'name': field_name, 'type': input_type, 'FK': fk_data})
 
     return meta
 
 @app.route("/Entry/<tablename>")
 def Entry(tablename):
-    table=f'{tablename}'
-    metadata = get_metadata(table)
-    metadata.append({'tablename':table})
-    return render_template('CreateSubmit.html', metadata=metadata)
+    try:
+        metadata = get_metadata(tablename)
+        return render_template('CreateSubmit.html', metadata=metadata, tablename=tablename)
+    except Exception as e:
+        print(f"Error in Entry route: {e}")
+        return render_template("error.html", message=f"An error occurred: {e}")
 
 @app.route("/CreateSubmit/<tablename>", methods=["POST"])
 def CreateSubmit(tablename):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     try:
-        # Read the main tables from main.txt
-        with open("main.txt", "r") as file:
-            main_tables = [line.strip().lower() for line in file.readlines()]
-
-        cursor.execute(f"DESCRIBE {tablename}")
-        data = cursor.fetchall()
-
-        fields = [] 
+        metadata = get_metadata(tablename)
+        fields = []
         values = []
-        excluded_fields = ['IsDeleted', 'RecordCreationLogin', 'LastUpdationTimeStamp', 'LastUpdationLogin']
 
-        for dt in data:
-            if dt['Key'] == 'PRI' or 'datetime' in dt['Type'] or dt['Field'] in excluded_fields:
-                continue
-
-            field_name = dt['Field']
+        for field in metadata:
+            field_name = field["name"]
             field_value = request.form.get(field_name)
 
-            # Debugging: Check if the field and value are being processed
-            print(f"Processing field: {field_name}, value: {field_value}")
+            # Handle varchar(1) fields (e.g., radio buttons)
+            if field["type"] == "radio":
+                field_value = "Y" if field_value == "Y" else "N"
 
-            # # Validate the Brand field
-            # if field_name == "Brand" and not field_value:
-            #     return render_template("error.html", message="Brand field cannot be empty.")
+            # Handle foreign key fields
+            if field["FK"]:
+                fk_data = field["FK"]
+                field_value = next((fk["Id"] for fk in fk_data if fk["Name"] == field_value), field_value)
 
-            # Add the field and value to the main table insertion
             fields.append(field_name)
             values.append(field_value)
 
-        # Debugging: Print the fields and values
-        print("Fields:", fields)
-        print("Values:", values)
-
-        # Insert the main record into the table
         placeholders = ", ".join(["%s"] * len(fields))
-        query = f"INSERT INTO {tablename} ({', '.join(fields)}) VALUES ({placeholders})"
+        query = f"INSERT INTO `{tablename}` ({', '.join(fields)}) VALUES ({placeholders})"
         cursor.execute(query, values)
         conn.commit()
 
+        flash("Record created successfully.", "success")
     except mysql.connector.Error as e:
         print(f"Error: {e}")
+        flash(f"Error: {e}", "danger")
         return render_template("error.html", message=f"An error occurred: {e}")
     finally:
         cursor.close()
@@ -234,27 +240,28 @@ def CreateSubmit(tablename):
 def Update(tablename):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute(f"DESCRIBE {tablename}")
-    metadata = cursor.fetchall()
-
-    # Find the primary key column
-    primary_key_column = None
-    for field in metadata:
-        if field["Key"] == "PRI":
-            primary_key_column = field["Field"]
-            break
+    metadata = get_metadata(tablename)
+    print(metadata)  # Debugging: Print metadata to check foreign key mappings  
+    primary_key_column = f"{tablename}Id"
 
     if request.method == "POST":
-        # Fetch the selected record based on the primary key value
         record_id = request.form.get("primary_key")
-        cursor.execute(f"SELECT * FROM {tablename} WHERE {primary_key_column} = %s", (record_id,))
+        print("Record ID:", record_id)  # Debugging: Check the value of record_id
+        cursor.execute(f"SELECT * FROM `{tablename}` WHERE `{primary_key_column}` = %s", (record_id,))
         record = cursor.fetchone()
+
+        # Map foreign key IDs to names for display
+        for field in metadata:
+            if field["FK"]:
+                fk_data = field["FK"]
+                record[field["name"]] = next((fk["Name"] for fk in fk_data if fk["Id"] == record[field["name"]]), record[field["name"]])
+        print(record)  # Check if foreign key IDs are mapped to names
+
         cursor.close()
         conn.close()
         return render_template("update.html", metadata=metadata, record=record, tablename=tablename, primary_key_column=primary_key_column, primary_key_value=record_id)
 
-    # Fetch all primary key values for the dropdown
-    cursor.execute(f"SELECT {primary_key_column} FROM {tablename}")
+    cursor.execute(f"SELECT `{primary_key_column}`, `{tablename}` FROM `{tablename}`")
     primary_keys = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -264,23 +271,34 @@ def Update(tablename):
 def UpdateSubmit(tablename, record_id):
     try:
         conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)  # Use dictionary=True for the cursor
-        cursor.execute(f"DESCRIBE {tablename}")
-        metadata = cursor.fetchall()
-
+        cursor = conn.cursor(dictionary=True)
+        metadata = get_metadata(tablename)
         updates = []
         values = []
-        for field in metadata:
-            if field["Key"] == "PRI" or "datetime" in field["Type"]:
-                continue
-            value = request.form.get(field["Field"])
-            updates.append(f"{field['Field']} = %s")
-            values.append(value)
 
-        query = f"UPDATE {tablename} SET {', '.join(updates)} WHERE {tablename}Id = %s"
+        for field in metadata:
+            field_name = field["name"]
+            field_value = request.form.get(field_name)
+
+            # Handle varchar(1) fields (e.g., radio buttons)
+            if field["type"] == "radio":
+                field_value = "Y" if field_value == "Y" else "N"
+
+            # Handle foreign key fields
+            if field["FK"]:
+                fk_data = field["FK"]
+                field_value = next((fk["Id"] for fk in fk_data if fk["Name"] == field_value), field_value)
+
+            updates.append(f"{field_name} = %s")
+            values.append(field_value)
+
+        query = f"UPDATE `{tablename}` SET {', '.join(updates)} WHERE `{tablename}Id` = %s"
         values.append(record_id)
         cursor.execute(query, values)
         conn.commit()
+
+        flash("Record updated successfully.", "success")
+
         cursor.close()
         conn.close()
         return redirect(url_for("Display", tablename=tablename))
@@ -288,16 +306,90 @@ def UpdateSubmit(tablename, record_id):
         print(f"Error: {e}")
         return render_template("error.html", message=f"An error occurred: {e}")
 
-@app.route("/Delete/<tablename>/<record_id>")
-def Delete(tablename, record_id):
+@app.route("/Delete/<tablename>", methods=["GET", "POST"])
+def Delete(tablename):
     conn = get_db_connection()
-    cursor = conn.cursor()
-    query = f"DELETE FROM {tablename} WHERE {tablename}Id = %s"
-    cursor.execute(query, (record_id,))
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return redirect(url_for("dashboard"))
+    cursor = conn.cursor(dictionary=True)
+    try:
+        # Dynamically determine the primary key and display column
+        primary_key_column = f"{tablename}Id"  # Primary key follows the convention <TableName>Id
+        display_column = tablename  # Display column is the same as the table name
+
+        # Fetch all records with IsDeleted = 'N'
+        cursor.execute(f"SELECT `{primary_key_column}`, `{display_column}` FROM `{tablename}` WHERE `IsDeleted` = 'N'")
+        records = cursor.fetchall()
+
+        # If a record is selected for deletion
+        if request.method == "POST":
+            record_id = request.form.get("record_id")
+            is_deleted = request.form.get("IsDeleted")
+
+            # Map "Yes" to "Y" and "No" to "N"
+            is_deleted_value = "Y" if is_deleted == "Yes" else "N"
+
+            # If the user sets IsDeleted to 'Y'
+            if is_deleted_value == "Y":
+                try:
+                    # Update the record to set IsDeleted = %s
+                    cursor.execute(f"UPDATE `{tablename}` SET `IsDeleted` = %s WHERE `{primary_key_column}` = %s", (is_deleted_value, record_id))
+                    conn.commit()
+                    flash("Record marked as deleted successfully.", "success")
+                except mysql.connector.Error as e:
+                    # Handle foreign key constraint errors
+                    if "foreign key constraint" in str(e).lower():
+                        flash("Cannot delete record due to foreign key constraints.", "danger")
+                    else:
+                        flash(f"Error: {e}", "danger")
+            else:
+                flash("No changes made.", "info")
+
+        # Refresh the records for the dropdown
+        cursor.execute(f"SELECT `{primary_key_column}`, `{display_column}` FROM `{tablename}` WHERE `IsDeleted` = 'N'")
+        records = cursor.fetchall()
+
+    except mysql.connector.Error as e:
+        flash(f"Error: {e}", "danger")
+        records = []
+        primary_key_column = None
+        display_column = None
+    finally:
+        cursor.close()
+        conn.close()
+
+    return render_template("delete.html", tablename=tablename, records=records, primary_key_column=primary_key_column, display_column=display_column)
+
+@app.route("/Undelete/<tablename>", methods=["GET", "POST"])
+def Undelete(tablename):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        # Dynamically determine the primary key and display column
+        primary_key_column = f"{tablename}Id"  # Primary key follows the convention <TableName>Id
+        display_column = tablename  # Display column is the same as the table name
+
+        # Fetch all records with IsDeleted = 'Y'
+        cursor.execute(f"SELECT `{primary_key_column}`, `{display_column}` FROM `{tablename}` WHERE `IsDeleted` = 'Y'")
+        records = cursor.fetchall()
+        print("Records:", records)  # Debugging: Check fetched records
+
+        # Fetch the details of the selected record
+        record_id = request.args.get("record_id")
+        print("Record ID:", record_id)  # Debugging: Check record_id
+        record_details = None
+        if record_id:
+            cursor.execute(f"SELECT * FROM `{tablename}` WHERE `{primary_key_column}` = %s", (record_id,))
+            record_details = cursor.fetchone()
+            print("Record Details:", record_details)  # Debugging: Check fetched record details
+
+    except mysql.connector.Error as e:
+        flash(f"Error: {e}", "danger")
+        records = []
+        record_details = None
+    finally:
+        cursor.close()
+        conn.close()
+
+    return render_template("undelete.html", tablename=tablename, records=records, record_details=record_details, primary_key_column=primary_key_column, display_column=display_column)
 
 @app.route("/Display/<tablename>")
 def Display(tablename):
@@ -307,53 +399,61 @@ def Display(tablename):
 
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute(f"SELECT * FROM {tablename} LIMIT %s OFFSET %s", (per_page, offset))
-    records = cursor.fetchall()
-    cursor.execute(f"SELECT COUNT(*) AS total FROM {tablename}")
-    total = cursor.fetchone()["total"]
-    cursor.close()
-    conn.close()
+    try:
+        cursor.execute(f"SELECT * FROM `{tablename}` WHERE `IsDeleted` = 'N' LIMIT %s OFFSET %s", (per_page, offset))
+        records = cursor.fetchall()
 
-    return render_template(
-        "display.html",
-        records=records,
-        tablename=tablename,
-        page=page,
-        total_pages=(total // per_page) + (1 if total % per_page > 0 else 0)
-    )
+        metadata = get_metadata(tablename)
+
+        # Map foreign key IDs to names for display
+        for record in records:
+            for field in metadata:
+                if field["FK"]:
+                    fk_data = field["FK"]
+                    record[field["name"]] = next((fk["Name"] for fk in fk_data if fk["Id"] == record[field["name"]]), record[field["name"]])
+        print("Metadata:", metadata)
+        print("Records:", records)
+
+        cursor.execute(f"SELECT COUNT(*) AS total FROM `{tablename}` WHERE `IsDeleted` = 'N'")
+        total = cursor.fetchone()["total"]
+
+        total_pages = (total // per_page) + (1 if total % per_page > 0 else 0)
+    except mysql.connector.Error as e:
+        flash(f"Error: {e}", "danger")
+        records = []
+        total_pages = 0
+    finally:
+        cursor.close()
+        conn.close()
+
+    return render_template("display.html", records=records, tablename=tablename, page=page, total_pages=total_pages,metadata=metadata)
 
 @app.route("/List/<tablename>")
 def List(tablename):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     try:
-        # Fetch the first two columns of the table
-        cursor.execute(f"DESCRIBE {tablename}")
-        columns = cursor.fetchall()
-        # if len(columns) < 2:
-        #     return render_template("error.html", message=f"Table {tablename} does not have enough columns.")
+        # Fetch metadata for the table
+        metadata = get_metadata(tablename)
 
-        first_column = columns[0]["Field"]
-        second_column = columns[1]["Field"]
+        # Determine the primary key and name column
+        primary_key_column = f"{tablename}Id"  # Assuming primary key follows this naming convention
+        name_column = tablename  # Assuming name column matches the table name
 
-        # Fetch data for the first two columns
-        cursor.execute(f"SELECT {first_column}, {second_column} FROM {tablename}")
+        # Fetch records with the primary key and name column
+        cursor.execute(f"SELECT `{primary_key_column}`, `{name_column}` FROM `{tablename}`")
         records = cursor.fetchall()
 
     except mysql.connector.Error as err:
         print(f"Error: {err}")
-        # return render_template("error.html", message=f"Table {tablename} does not exist.")
+        records = []
+        primary_key_column = ""
+        name_column = ""
     finally:
         cursor.close()
         conn.close()
 
-    return render_template(
-        "list.html",
-        records=records,
-        tablename=tablename,
-        first_column=first_column,
-        second_column=second_column
-    )
+    return render_template("list.html", records=records, tablename=tablename, first_column=primary_key_column, second_column=name_column)
 
 
 if __name__ == '__main__':
