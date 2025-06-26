@@ -82,6 +82,11 @@
                     <input type="radio" name="{{ field.name }}" id="{{ field.name }}" value="Y">Y
                     <input type="radio" name="{{ field.name }}" id="{{ field.name }}" value="N">N
                     <br>
+                    
+                {% elif field.type == 'radio1' %}
+                        <input type="radio" name="{{ field.name }}" id="{{ field.name }}" value="M">M
+                        <input type="radio" name="{{ field.name }}" id="{{ field.name }}" value="F">F
+                        <br>
                 {%elif field.type=='textarea' %}
                 <textarea name="{{field.name}}" id="{{field.name}}" rows="4" cols="50"></textarea>
                 <br>

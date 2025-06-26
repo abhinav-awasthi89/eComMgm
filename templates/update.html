@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
 
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -13,10 +12,10 @@
 </head>
 <body>
     <div class="container mt-5">
-        <h1 class="text-center">Update Record in {{ tablename }}</h1>
+        <h1 class="text-center mb-4">Update Record in {{ tablename }}</h1>
 
         <!-- Dropdown to select primary key -->
-        <form method="POST" action="{{ url_for('Update', tablename=tablename) }}">
+        <form method="POST" action="{{ url_for('Update', tablename=tablename) }}" class="mb-4">
             <div class="mb-3">
                 <label for="primary_key" class="form-label">Select Record to Update</label>
                 <select class="form-select" id="primary_key" name="primary_key" required>
@@ -29,56 +28,71 @@
                 </select>
             </div>
             <div class="text-center">
-                <button type="submit" class="btn btn-primary">Load Record</button>
+                <button type="submit" class="btn btn-primary btn-sm">Load Record</button>
             </div>
         </form>
-
+        {{record}}
+        <br><br><br</br>
+        {{metadata}}
         <!-- Form to update the selected record -->
         {% if record %}
         <form method="POST" action="{{ url_for('UpdateSubmit', tablename=tablename, record_id=primary_key_value) }}">
             {% for field in metadata %}
-                <div class="mb-3">
-                    <label for="{{ field.name }}" class="form-label">{{ field.name }}</label>
-                    {% if field.type == 'varchar' or field.type == 'textarea' %}
-                        <input type="text" class="form-control" id="{{ field.name }}" name="{{ field.name }}" value="{{ record[field.name] }}">
-                    {% elif field.type == 'int' %}
-                        <input type="number" class="form-control" id="{{ field.name }}" name="{{ field.name }}" value="{{ record[field.name] }}">
-                    {% elif field.FK %}
-                        <select name="{{ field.name }}" id="{{ field.name }}" class="form-select">
-                            <option value="" disabled>Select {{ field.name }}</option>
-                            {% for fk in field.FK %}
-                                <option value="{{ fk.Name }}" {% if record[field.name] == fk.Name %}selected{% endif %}>
-                                    {{ fk.Name }} <!-- Display Name instead of Id -->
-                                </option>
+            <div class="mb-3">
+                <label for="{{ field.name }}" class="form-label">{{ field.name }}</label>
+                {% if field.type == 'varchar' or field.type == 'textarea' %}
+                    <input type="text" class="form-control form-control-sm" id="{{ field.name }}" name="{{ field.name }}" value="{{ record[field.name] }}">
+                {% elif field.type == 'int' %}
+                    <input type="number" class="form-control form-control-sm" id="{{ field.name }}" name="{{ field.name }}" value="{{ record[field.name] }}">
+                {% elif field.FK %}
+                    <select name="{{ field.name }}" id="{{ field.name }}" class="form-select form-select-sm">
+                        
+                        {% for fk in field.FK %}
+                            <option value="{{ fk.Name }}" {% if record[field.name] == fk.Name %}selected{% endif %}>
+                                {{ fk.Name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                {% elif field.type == 'radio' %}
+                    <div class="form-check">
+                        <input type="radio" id="{{ field.name }}_Y" name="{{ field.name }}" value="Y" class="form-check-input" {% if record[field.name] == 'Y' %}checked{% endif %}>
+                        <label for="{{ field.name }}_Y" class="form-check-label">Y</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="radio" id="{{ field.name }}_N" name="{{ field.name }}" value="N" class="form-check-input" {% if record[field.name] == 'N' %}checked{% endif %}>
+                        <label for="{{ field.name }}_N" class="form-check-label">N</label>
+                    </div>
+                    {% elif field.type == 'radio1' %}
+                    <div class="form-check">
+                        <input type="radio" id="{{ field.name }}_M" name="{{ field.name }}" value="M" class="form-check-input" {% if record[field.name] == 'M' %}checked{% endif %}>
+                        <label for="{{ field.name }}_M" class="form-check-label">M</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="radio" id="{{ field.name }}_F" name="{{ field.name }}" value="F" class="form-check-input" {% if record[field.name] == 'F' %}checked{% endif %}>
+                        <label for="{{ field.name }}_F" class="form-check-label">F</label>
+                    </div>
+                {% elif field.type == 'enum' %}
+                    {% if field.enum_options|length > 5 %}
+                        <select name="{{ field.name }}" id="{{ field.name }}" class="form-select form-select-sm">
+                            <option value="" disabled selected>Select {{ field.name }}</option>
+                            {% for option in field.enum_options %}
+                                <option value="{{ option }}" {% if record[field.name] == option %}selected{% endif %}>{{ option }}</option>
                             {% endfor %}
                         </select>
-                    {% elif field.type == 'radio' %}
-                        <div>
-                            <input type="radio" id="{{ field.name }}_Y" name="{{ field.name }}" value="Y" {% if record[field.name] == 'Y' %}checked{% endif %}>
-                            <label for="{{ field.name }}_Y">Y</label>
-                            <input type="radio" id="{{ field.name }}_N" name="{{ field.name }}" value="N" {% if record[field.name] == 'N' %}checked{% endif %}>
-                            <label for="{{ field.name }}_N">N</label>
-                        </div>
-                    {% elif field.type == 'enum' %}
-                        {% if field.enum_options|length > 5 %}
-                            <select name="{{ field.name }}" id="{{ field.name }}" class="form-select">
-                                <option value="" disabled selected>Select {{ field.name }}</option>
-                                {% for option in field.enum_options %}
-                                    <option value="{{ option }}" {% if record[field.name] == option %}selected{% endif %}>{{ option }}</option>
-                                {% endfor %}
-                            </select>
-                        {% else %}
-                            {% for option in field.enum_options %}
-                                <input type="radio" name="{{ field.name }}" id="{{ field.name }}_{{ option }}" value="{{ option }}" {% if record[field.name] == option %}checked{% endif %}>
-                                <label for="{{ field.name }}_{{ option }}">{{ option }}</label>
-                            {% endfor %}
-                        {% endif %}
+                    {% else %}
+                        {% for option in field.enum_options %}
+                            <div class="form-check">
+                                <input type="radio" name="{{ field.name }}" id="{{ field.name }}_{{ option }}" value="{{ option }}" class="form-check-input" {% if record[field.name] == option %}checked{% endif %}>
+                                <label for="{{ field.name }}_{{ option }}" class="form-check-label">{{ option }}</label>
+                            </div>
+                        {% endfor %}
                     {% endif %}
-                </div>
+                {% endif %}
+            </div>
             {% endfor %}
             <div class="text-center">
-                <button type="submit" class="btn btn-primary">Update</button>
-                <a href="{{ url_for('Display', tablename=tablename) }}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary btn-sm">Update</button>
+                <a href="{{ url_for('Display', tablename=tablename) }}" class="btn btn-secondary btn-sm">Cancel</a>
             </div>
         </form>
         {% endif %}

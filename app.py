@@ -13,60 +13,20 @@ host = os.getenv("DB_HOST", "bla")
 print(host)
 
 
-users = {
-    "admin": {"password": "password123", "role": "admin"},
-    "user": {"password": "pass123", "role": "user"}
-}
+# users = {
+#     "admin": {"password": "password123", "role": "admin"},
+#     "user": {"password": "pass123", "role": "user"}
+# }
 arr=['Entry','Update','Display','List','Delete'] #Crud 
-mariadb_data_types = [
-    # Numeric Data Types
-    [
-        ["TINYINT", "-128", "127", "1 byte"],
-        ["SMALLINT", "-32,768", "32,767", "2 bytes"],
-        ["MEDIUMINT", "-8,388,608", "8,388,607", "3 bytes"],
-        ["INT", "-2,147,483,648", "2,147,483,647", "4 bytes"],
-        ["BIGINT", "-9,223,372,036,854,775,808", "9,223,372,036,854,775,807", "8 bytes"],
-        ["DECIMAL", "Depends on precision", "Depends on precision", "Variable"],
-        ["FLOAT", "-3.402823466E+38", "3.402823466E+38", "4 bytes"],
-        ["DOUBLE", "-1.7976931348623157E+308", "1.7976931348623157E+308", "8 bytes"]
-    ],
 
-    # Date and Time Data Types
-    [
-        ["DATE", "1000-01-01", "9999-12-31", "3 bytes"],
-        ["DATETIME", "1000-01-01 00:00:00", "9999-12-31 23:59:59", "8 bytes"],
-        ["TIMESTAMP", "1970-01-01 00:00:01 UTC", "2038-01-19 03:14:07 UTC", "4 bytes"],
-        ["TIME", "-838:59:59", "838:59:59", "3 bytes"],
-        ["YEAR", "1901", "2155", "1 byte"]
-    ],
 
-    # String Data Types
-    [
-        ["CHAR", "1", "255", "1-255 bytes"],
-        ["VARCHAR", "1", "65535", "1-65535 bytes"],
-        ["TEXT", "1", "65535", "1-65535 bytes"],
-        ["TINYTEXT", "1", "255", "1-255 bytes"],
-        ["MEDIUMTEXT", "1", "16,777,215", "1-16 MB"],
-        ["LONGTEXT", "1", "4,294,967,295", "1-4 GB"],
-        ["BLOB", "1", "65535", "1-65535 bytes"],
-        ["TINYBLOB", "1", "255", "1-255 bytes"],
-        ["MEDIUMBLOB", "1", "16,777,215", "1-16 MB"],
-        ["LONGBLOB", "1", "4,294,967,295", "1-4 GB"]
-    ],
-
-    # Other Data Types
-    [
-        ["ENUM", "1", "65,535 values", "1-2 bytes"],
-        ["SET", "1", "64 members", "1-8 bytes"],
-        ["JSON", "N/A", "N/A", "Variable"]
-    ]
-]
+   
 def get_db_connection():
     return mysql.connector.connect(
         host=os.getenv("DB_HOST", "localhost"),
         user=os.getenv("DB_USER", "root"),
         password=os.getenv("DB_PASSWORD", "mypassword"),
-        database=os.getenv("DB_NAME", "ecom")
+        database=os.getenv("DB_NAME", "ecomv1")
     )
 
 @app.context_processor
@@ -89,18 +49,71 @@ def inject_tables():
 
 
 @app.route("/", methods=["GET", "POST"])
+def logintype():
+    if request.method == "POST":
+        login_type = request.form.get("login_type")
+        session["login_type"] = login_type  # Store the login type in the session
+
+        user=None
+        if(login_type=='isAdmin'):
+            user="Admin"
+        elif(login_type=='isVendor'):
+            user="Vendor"
+        elif(login_type=='isCourier'):
+            user="Courier"
+        
+
+        return render_template("login.html", error="Invalid Credentials",user=user)
+
+    return render_template("logintype.html")
+@app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
+        username = request.form.get("username")
+        password = request.form.get("password")
+        login_type = session.get("login_type")
+        conn= get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        try:
+            cursor.execute("SELECT * FROM User ")
+            data = cursor.fetchall()
+            print("Data:", data) 
+            user_found = False
 
-        if username in users and users[username]["password"] == password:
-            session["user"] = username
-            session["role"] = users[username]["role"]
-            return redirect(url_for("dashboard"))
+            for dt in data:
+                if dt['User'] == username and dt['Passwd'] == password:
+                    user_found = True
+        # Role-based checks
+                    if login_type == 'isAdmin' and dt['IsAdmin'] == 'Y' and dt['IsVerified'] == 'Y' and dt['IsActivated'] == 'Y' and dt['IsBlackListed'] == 'N' and dt['IsDead'] == 'N' and dt['IsDeleted'] == 'N':
+                        session['user'] = username
+                        flash("Login successful!", "success")
+                        return redirect(url_for("dashboard"))
+                    elif login_type == 'isVendor' and dt['IsVendor'] == 'Y' and dt['IsVerified'] == 'Y' and dt['IsActivated'] == 'Y' and dt['IsBlackListed'] == 'N' and dt['IsDead'] == 'N' and dt['IsDeleted'] == 'N':
+                        session['user'] = username
+                        flash("Login successful!", "success")
+                        return redirect(url_for("dashboard"))
+                    elif login_type == 'isCourier' and dt['IsCourier'] == 'Y' and dt['IsVerified'] == 'Y' and dt['IsActivated'] == 'Y' and dt['IsBlackListed'] == 'N' and dt['IsDead'] == 'N' and dt['IsDeleted'] == 'N':
+                        session['user'] = username
+                        flash("Login successful!", "success")
+                        return redirect(url_for("dashboard"))
+                    else:
+                        flash(f"You are not authorized to login as {login_type[2:]}.", "danger")
+                        return render_template("login.html")
 
-        return render_template("login.html", error="Invalid Credentials")
+            if user_found==False:
+                flash("Invalid credentials. Please try again.", "danger")
 
+                    
+
+                        
+                    
+        except mysql.connector.Error as e:
+            print(f"Error: {e}")
+        finally:    
+            cursor.close()
+            conn.close()
+
+        
     return render_template("login.html")
 
 @app.route("/logout")
@@ -108,7 +121,7 @@ def logout():
     # Clear the session
     session.clear()
     # Redirect to the login page
-    return redirect(url_for("login"))
+    return redirect(url_for("logintype"))
 
 def admin_required(f):
     @wraps(f)
@@ -121,7 +134,7 @@ def admin_required(f):
 @app.route("/dashboard")
 def dashboard():
     if "user" not in session:
-        return redirect(url_for("login"))
+        return redirect(url_for("logintype"))
     return render_template("base.html", username=session["user"])
 
 def get_FKdata(table):
@@ -163,7 +176,9 @@ def get_metadata(table):
         field_name = dt['Field']
         input_type = 'int'
 
-        if 'Is' in dt['Field'] and dt['Type'] == 'varchar(1)':
+        if  dt['Field']=='Gender':
+            input_type = 'radio1'
+        elif dt['Type']=='char(1)':
             input_type = 'radio'
         elif 'varchar' in dt['Type']:
             input_type = 'varchar'
@@ -211,6 +226,8 @@ def CreateSubmit(tablename):
             # Handle varchar(1) fields (e.g., radio buttons)
             if field["type"] == "radio":
                 field_value = "Y" if field_value == "Y" else "N"
+            if field["type"] == "radio1":
+                field_value = "M" if field_value == "M" else "F"
 
             # Handle foreign key fields
             if field["FK"]:
@@ -219,6 +236,10 @@ def CreateSubmit(tablename):
 
             fields.append(field_name)
             values.append(field_value)
+
+        # Add RecordCreationLogin field
+        fields.append("RecordCreationLogin")
+        values.append(session.get("login_type", "Unknown"))  # Default to "Unknown" if session['login_type'] is not set
 
         placeholders = ", ".join(["%s"] * len(fields))
         query = f"INSERT INTO `{tablename}` ({', '.join(fields)}) VALUES ({placeholders})"
@@ -240,9 +261,10 @@ def CreateSubmit(tablename):
 def Update(tablename):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    metadata = get_metadata(tablename)
-    print(metadata)  # Debugging: Print metadata to check foreign key mappings  
+    metadata = get_metadata(tablename) 
     primary_key_column = f"{tablename}Id"
+    record=None
+    record_id=None
 
     if request.method == "POST":
         record_id = request.form.get("primary_key")
@@ -253,19 +275,17 @@ def Update(tablename):
         # Map foreign key IDs to names for display
         for field in metadata:
             if field["FK"]:
+                field["FK"] = [{"Name": fk["Name"], "Id": fk["Id"]} for fk in field["FK"]]
                 fk_data = field["FK"]
                 record[field["name"]] = next((fk["Name"] for fk in fk_data if fk["Id"] == record[field["name"]]), record[field["name"]])
-        print(record)  # Check if foreign key IDs are mapped to names
-
-        cursor.close()
-        conn.close()
-        return render_template("update.html", metadata=metadata, record=record, tablename=tablename, primary_key_column=primary_key_column, primary_key_value=record_id)
+        print(record)
+        
 
     cursor.execute(f"SELECT `{primary_key_column}`, `{tablename}` FROM `{tablename}`")
     primary_keys = cursor.fetchall()
     cursor.close()
     conn.close()
-    return render_template("update.html", metadata=metadata, primary_keys=primary_keys, tablename=tablename, primary_key_column=primary_key_column)
+    return render_template("update.html", metadata=metadata, primary_keys=primary_keys, tablename=tablename, primary_key_column=primary_key_column,record=record,primary_key_value=record_id)
 
 @app.route("/UpdateSubmit/<tablename>/<record_id>", methods=["POST"])
 def UpdateSubmit(tablename, record_id):
@@ -283,6 +303,8 @@ def UpdateSubmit(tablename, record_id):
             # Handle varchar(1) fields (e.g., radio buttons)
             if field["type"] == "radio":
                 field_value = "Y" if field_value == "Y" else "N"
+            if field["type"] == "radio1":
+                field_value = "M" if field_value == "M" else "F"
 
             # Handle foreign key fields
             if field["FK"]:
@@ -292,19 +314,28 @@ def UpdateSubmit(tablename, record_id):
             updates.append(f"{field_name} = %s")
             values.append(field_value)
 
+        # Add LastUpdationLogin field
+        updates.append("LastUpdationLogin = %s")
+        values.append(session.get("login_type", "Unknown"))  # Default to "Unknown" if session['login_type'] is not set
+
         query = f"UPDATE `{tablename}` SET {', '.join(updates)} WHERE `{tablename}Id` = %s"
         values.append(record_id)
+
+        # Debugging
+        print(f"Query: {query}")
+        print(f"Values: {values}")
+
         cursor.execute(query, values)
         conn.commit()
 
         flash("Record updated successfully.", "success")
-
-        cursor.close()
-        conn.close()
         return redirect(url_for("Display", tablename=tablename))
     except mysql.connector.Error as e:
         print(f"Error: {e}")
         return render_template("error.html", message=f"An error occurred: {e}")
+    finally:
+        cursor.close()
+        conn.close()
 
 @app.route("/Delete/<tablename>", methods=["GET", "POST"])
 def Delete(tablename):
@@ -316,7 +347,7 @@ def Delete(tablename):
         display_column = tablename  # Display column is the same as the table name
 
         # Fetch all records with IsDeleted = 'N'
-        cursor.execute(f"SELECT `{primary_key_column}`, `{display_column}` FROM `{tablename}` WHERE `IsDeleted` = 'N'")
+        cursor.execute(f"SELECT `{primary_key_column}`, `{display_column}` FROM `{tablename}` WHERE `IsDeleted` = 'N' or `IsDeleted` = '' ")
         records = cursor.fetchall()
 
         # If a record is selected for deletion
@@ -325,7 +356,7 @@ def Delete(tablename):
             is_deleted = request.form.get("IsDeleted")
 
             # Map "Yes" to "Y" and "No" to "N"
-            is_deleted_value = "Y" if is_deleted == "Yes" else "N"
+            is_deleted_value = "Y"  if is_deleted == "Yes" and is_deleted!='' else "N"
 
             # If the user sets IsDeleted to 'Y'
             if is_deleted_value == "Y":
@@ -344,7 +375,7 @@ def Delete(tablename):
                 flash("No changes made.", "info")
 
         # Refresh the records for the dropdown
-        cursor.execute(f"SELECT `{primary_key_column}`, `{display_column}` FROM `{tablename}` WHERE `IsDeleted` = 'N'")
+        cursor.execute(f"SELECT `{primary_key_column}`, `{display_column}` FROM `{tablename}` WHERE `IsDeleted` = 'N' or `IsDeleted` = '' ")
         records = cursor.fetchall()
 
     except mysql.connector.Error as e:
@@ -372,14 +403,19 @@ def Undelete(tablename):
         records = cursor.fetchall()
         print("Records:", records)  # Debugging: Check fetched records
 
-        # Fetch the details of the selected record
-        record_id = request.args.get("record_id")
-        
+        # Initialize record_details
         record_details = None
-        if record_id:
-            cursor.execute(f"SELECT * FROM `{tablename}` WHERE `{primary_key_column}` = %s", (record_id,))
-            record_details = cursor.fetchone()
-            
+
+        # Handle POST request to load record details
+        if request.method == "POST":
+            record_id = request.form.get("record_id")  # Fetch the selected record ID
+            if record_id:
+                cursor.execute(f"SELECT * FROM `{tablename}` WHERE `{primary_key_column}` = %s", (record_id,))
+                record_details = cursor.fetchone()
+                print("Record Details:", record_details)  # Debugging: Check fetched record details
+            else:
+                flash("Please select a valid record.", "danger")
+
     except mysql.connector.Error as e:
         flash(f"Error: {e}", "danger")
         records = []
@@ -398,26 +434,18 @@ def UndeleteSubmit(tablename):
         # Dynamically determine the primary key column
         primary_key_column = f"{tablename}Id"  # Primary key follows the convention <TableName>Id
 
-        # Fetch form data
-        record_id = request.form.get("record_id")  # Fetch the selected record ID
-        is_deleted = request.form.get("IsDeleted")  # Fetch the IsDeleted value
+        
+        record_id = request.args.get("record_id") 
+        print("Recovered record_id",record_id)
+        
 
-        # Validate record_id
-        if not record_id:
-            flash("Please select a record to recover.", "danger")
-            return redirect(url_for("Undelete", tablename=tablename))
-
-        # Map "Yes" to "Y" and "No" to "N"
-        is_deleted_value = "N" if is_deleted == "No" else "Y"
-
-        # If the user sets IsDeleted to 'N' (recover the record)
-        if is_deleted_value == "N":
-            try:
-                # Update the record to set IsDeleted = 'N'
-                cursor.execute(f"UPDATE `{tablename}` SET `IsDeleted` = %s WHERE `{primary_key_column}` = %s", (is_deleted_value, record_id))
-                conn.commit()
-                flash("Record recovered successfully.", "success")
-            except mysql.connector.Error as e:
+        
+        try:
+            print("did controll")
+            cursor.execute(f"UPDATE `{tablename}` SET `IsDeleted` = 'N' WHERE `{primary_key_column}` = %s", (record_id,))
+            conn.commit()
+            flash("Record recovered successfully.", "success")
+        except mysql.connector.Error as e:
                 flash(f"Error: {e}", "danger")
         else:
             flash("No changes made.", "info")
@@ -439,7 +467,7 @@ def Display(tablename):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     try:
-        cursor.execute(f"SELECT * FROM `{tablename}` WHERE `IsDeleted` = 'N' LIMIT %s OFFSET %s", (per_page, offset))
+        cursor.execute(f"SELECT * FROM `{tablename}` WHERE `IsDeleted` = 'N' or `IsDeleted`=''LIMIT %s OFFSET %s", (per_page, offset))
         records = cursor.fetchall()
 
         metadata = get_metadata(tablename)
@@ -450,10 +478,8 @@ def Display(tablename):
                 if field["FK"]:
                     fk_data = field["FK"]
                     record[field["name"]] = next((fk["Name"] for fk in fk_data if fk["Id"] == record[field["name"]]), record[field["name"]])
-        print("Metadata:", metadata)
-        print("Records:", records)
-
-        cursor.execute(f"SELECT COUNT(*) AS total FROM `{tablename}` WHERE `IsDeleted` = 'N'")
+       
+        cursor.execute(f"SELECT COUNT(*) AS total FROM `{tablename}` WHERE `IsDeleted` = 'N' or `IsDeleted` = ''")
         total = cursor.fetchone()["total"]
 
         total_pages = (total // per_page) + (1 if total % per_page > 0 else 0)
@@ -467,32 +493,61 @@ def Display(tablename):
 
     return render_template("display.html", records=records, tablename=tablename, page=page, total_pages=total_pages,metadata=metadata)
 
-@app.route("/List/<tablename>")
+@app.route("/List/<tablename>", methods=["GET"])
 def List(tablename):
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    conn = get_db_connection()  # Connect to the database
+    cursor = conn.cursor(dictionary=True)  # Create a cursor to execute queries
     try:
-        # Fetch metadata for the table
-        metadata = get_metadata(tablename)
+        # Define the primary key and name column
+        primary_key_column = f"{tablename}Id"  # Primary key column (e.g., "tablenameId")
+        name_column = tablename  # Name column (e.g., "tablename")
 
-        # Determine the primary key and name column
-        primary_key_column = f"{tablename}Id"  # Assuming primary key follows this naming convention
-        name_column = tablename  # Assuming name column matches the table name
+        # Get pagination and search parameters from the URL
+        page = request.args.get("page", 1, type=int)  # Current page number (default is 1)
+        per_page = 10  # Number of records per page
+        offset = (page - 1) * per_page  # Calculate the starting point for records
+        search_query = request.args.get("search", "").strip()  # Search query (default is empty)
 
-        # Fetch records with the primary key and name column
-        cursor.execute(f"SELECT `{primary_key_column}`, `{name_column}` FROM `{tablename}`")
-        records = cursor.fetchall()
+        # Base query to fetch records
+        query = f"SELECT `{primary_key_column}`, `{name_column}` FROM `{tablename}`"
+        count_query = f"SELECT COUNT(*) AS total FROM `{tablename}`"
+
+        # Add search filter if a search query is provided
+        if search_query:
+            query += f" WHERE `{name_column}` LIKE %s"
+            count_query += f" WHERE `{name_column}` LIKE %s"
+            search_param = f"%{search_query}%"  # Add wildcards for partial matching
+            cursor.execute(query + f" LIMIT %s OFFSET %s", (search_param, per_page, offset))
+            records = cursor.fetchall()  # Fetch the filtered records
+            cursor.execute(count_query, (search_param,))
+        else:
+            cursor.execute(query + f" LIMIT %s OFFSET %s", (per_page, offset))
+            records = cursor.fetchall()  # Fetch the records without filtering
+            cursor.execute(count_query)
+
+        total = cursor.fetchone()["total"]  # Get the total number of records
+        total_pages = (total // per_page) + (1 if total % per_page > 0 else 0)  # Calculate total pages
 
     except mysql.connector.Error as err:
-        print(f"Error: {err}")
-        records = []
-        primary_key_column = ""
-        name_column = ""
+        print(f"Error: {err}")  # Print any database errors
+        records = []  # Default to an empty list if an error occurs
+        total_pages = 0  # Default to 0 pages if an error occurs
+        search_query = ""  # Default to an empty search query
     finally:
-        cursor.close()
-        conn.close()
+        cursor.close()  # Close the cursor
+        conn.close()  # Close the database connection
 
-    return render_template("list.html", records=records, tablename=tablename, first_column=primary_key_column, second_column=name_column)
+    # Render the template with the records, pagination, and search query
+    return render_template(
+        "list.html",
+        records=records,
+        tablename=tablename,
+        first_column=primary_key_column,
+        second_column=name_column,
+        page=page,
+        total_pages=total_pages,
+        search_query=search_query
+    )
 
 
 if __name__ == '__main__':

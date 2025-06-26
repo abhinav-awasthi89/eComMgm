@@ -13,20 +13,26 @@
 
 <div class="container mt-5">
     <h1 class="text-center">Recover Record in {{ tablename }}</h1>
-    <form method="POST" action="{{ url_for('UndeleteSubmit', tablename=tablename) }}">
+    <form method="POST" action="{{ url_for('Undelete', tablename=tablename) }}">
         <div class="mb-3">
             <label for="record_id" class="form-label">Select Record</label>
-            <select class="form-select" name="record_id" id="record_id" required onchange="window.location.href='?record_id=' + this.value;">
+            <select class="form-select" name="record_id" id="record_id" required>
                 <option value="" disabled selected>Select a record</option>
                 {% for record in records %}
-                    <option value="{{ record[primary_key_column] }}" {% if record[primary_key_column] == request.args.get('record_id') %}selected{% endif %}>
-                        {{ record[display_column] }}
+                    <option value="{{ record[primary_key_column] }}"{% if record[primary_key_column] == request.form.get('record_id') %}selected{% endif %} >{{record[display_column]}}</option>
                     </option>
                 {% endfor %}
             </select>
         </div>
+        <div class="text-center">
+            <button type="submit" class="btn btn-primary">Load Record</button>
+        </div>
+        </form>
+        
+        {%if record_details %}
+        <form method="POST" action="{{ url_for('UndeleteSubmit',tablename=tablename,record_id=request.form.get('record_id'))}}"
 
-        {% if record_details %}
+       
         <div class="mb-3">
             <label class="form-label">Record Details</label>
             <div class="form-control">
@@ -34,15 +40,16 @@
                     <strong>{{ key }}:</strong> {{ value }}<br>
                 {% endfor %}
             </div>
-        </div>
-        <div class="mb-3">
+      
+        <!-- <div class="mb-3">
             <label for="IsDeleted" class="form-label">Recover Record</label>
             <select class="form-select" name="IsDeleted" id="IsDeleted" required>
-                <option value="No" selected>No</option>
                 <option value="Yes">Yes</option>
             </select>
+        </div> -->
+        <div class="text-center">
+            <button type="submit" class="btn btn-success">Recover Record</button>
         </div>
-        <button type="submit" class="btn btn-success">Submit</button>
         {% endif %}
     </form>
 </div>
