@@ -40,19 +40,20 @@
             {% for field in metadata %}
             <div class="mb-3">
                 <label for="{{ field.name }}" class="form-label">{{ field.name }}</label>
-                {% if field.type == 'varchar' or field.type == 'textarea' %}
-                    <input type="text" class="form-control form-control-sm" id="{{ field.name }}" name="{{ field.name }}" value="{{ record[field.name] }}">
-                {% elif field.type == 'int' %}
-                    <input type="number" class="form-control form-control-sm" id="{{ field.name }}" name="{{ field.name }}" value="{{ record[field.name] }}">
-                {% elif field.FK %}
+                
+                {% if field.FK %}
+              
                     <select name="{{ field.name }}" id="{{ field.name }}" class="form-select form-select-sm">
-                        
+                        <p>debgugg</p>
                         {% for fk in field.FK %}
-                            <option value="{{ fk.Name }}" {% if record[field.name] == fk.Name %}selected{% endif %}>
+                            <option value="{{ fk.Name }}" {% if record[field.name] == fk.Id %}selected{% endif %}>
                                 {{ fk.Name }}
                             </option>
                         {% endfor %}
                     </select>
+                    {% elif field.type == 'varchar' or field.type == 'textarea' %}
+                    <input type="text" class="form-control form-control-sm" id="{{ field.name }}" name="{{ field.name }}" value="{{ record[field.name] }}">
+                
                 {% elif field.type == 'radio' %}
                     <div class="form-check">
                         <input type="radio" id="{{ field.name }}_Y" name="{{ field.name }}" value="Y" class="form-check-input" {% if record[field.name] == 'Y' %}checked{% endif %}>
@@ -87,6 +88,10 @@
                             </div>
                         {% endfor %}
                     {% endif %}
+                {% elif field.type == 'int' %}
+                    <input type="number" class="form-control form-control-sm" id="{{ field.name }}" name="{{ field.name }}" value="{{ record[field.name] }}">
+                {% else%}
+                <input type="text" name="{{field.name}}" value="{{field.name}}">
                 {% endif %}
             </div>
             {% endfor %}

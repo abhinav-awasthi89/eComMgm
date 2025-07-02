@@ -10,7 +10,9 @@
     <script>
         function validateForm() {
             let inputs = document.querySelectorAll("input:not([type=radio])");
-            
+            console.log("Inputs:");
+            inputs.forEach(input => console.log(input.name, input.value)); // Log each input's name and value
+
             for (let input of inputs) {
                 let value = input.value.trim();
                 if (value === "") {
@@ -19,21 +21,21 @@
                 }
 
                 // Email validation
-                if (input.type === "email" && !/^\S+@\S+\.\S+$/.test(value)) {
+                if (input.name.includes("Email") && !/^\S+@\S+\.\S+$/.test(value)) {
                     alert("Invalid email format.");
                     return false;
                 }
 
                 // Phone number validation (digits only, 10-15 length)
-                if (input.name.toLowerCase().includes("phone") && !/^\d{10,15}$/.test(value)) {
+                if (input.name.includes("Mobile") && !/^\d{10,15}$/.test(value)) {
                     alert("Invalid phone number. Must be 10-15 digits.");
                     return false;
                 }
             }
 
             // Password validation (min 6 chars, must match confirm password)
-            let password = document.querySelector('input[name="password"]');
-            let confirmPassword = document.querySelector('input[name="cp"]');
+            let password = document.querySelector('input[name="Passwd"]');
+            let confirmPassword = document.querySelector('input[name="confirmPassword"]');
             if (password && confirmPassword) {
                 if (password.value.length < 6) {
                     alert("Password must be at least 6 characters.");
@@ -63,6 +65,16 @@
                         {% endfor %}
                     </select>
                     <br>
+                {%elif field.type=='int' %}
+                <input type="number" name="{{field.name}}" value="{{field.value}}">
+                <br>
+                {%elif field.type=='password' %}
+                <input type="password" name="{{ field.name }}" id="{{ field.name }}" minlength="6" required>
+                <br>
+                <label for="confirmPassword">Confirm Password</label>
+                <input type="password" name="confirmPassword" id="confirmPassword">
+
+                <br>
                 {% elif field.type == 'enum' %}
                 {% if field.len>5 %}
                     <select name="{{ field.name }}" id="{{ field.name }}">
@@ -90,6 +102,10 @@
                 {%elif field.type=='textarea' %}
                 <textarea name="{{field.name}}" id="{{field.name}}" rows="4" cols="50"></textarea>
                 <br>
+                {%elif field.type=='varchar' %}
+                <input type="text" name="{{ field.name }}" id="{{ field.name }}" >
+                <br>
+
                 {% else %}
                     <input type="text" name="{{ field.name }}" id="{{ field.name }}">
                 {% endif %}

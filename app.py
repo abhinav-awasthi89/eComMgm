@@ -167,17 +167,19 @@ def get_metadata(table):
         main_tables = [line.strip() for line in file.readlines()]
 
     meta = []
-    excluded_fields = ['IsDeleted', 'RecordCreationLogin', 'LastUpdationLogin']
+    excluded_fields = ['IsDeleted', 'RecordCreationLogin', 'LastUpdationLogin','IsActivated','IsVerified','IsBlackListed','IsDead']
 
     for dt in data:
         if dt['Key'] == 'PRI' or 'datetime' in dt['Type'] or dt['Field'] in excluded_fields:
             continue
 
         field_name = dt['Field']
-        input_type = 'int'
+        input_type = 'varchar'
 
         if  dt['Field']=='Gender':
             input_type = 'radio1'
+        elif dt['Field']=='Passwd':
+            input_type = 'password'
         elif dt['Type']=='char(1)':
             input_type = 'radio'
         elif 'varchar' in dt['Type']:
@@ -188,16 +190,20 @@ def get_metadata(table):
             input_type = 'enum'
             enum_options = dt['Type'].strip('enum()').replace("'", "").split(',')
             meta.append({'name': field_name, 'type': input_type, 'enum_options': enum_options, 'len': len(enum_options), 'FK': None})
-            continue
+        elif 'int' in dt['Type'] and 'int(8)' not in dt['Type']:
+            input_type = 'int'
+            
 
         fk_data = None
-        if 'int' in dt['Type']:
+        if 'int(8)' in dt['Type']:
             for main_table in main_tables:
                 if main_table in field_name:
                     fk_data = get_FKdata(main_table)
                     break
-
+        
         meta.append({'name': field_name, 'type': input_type, 'FK': fk_data})
+       
+
 
     return meta
 
@@ -277,8 +283,8 @@ def Update(tablename):
             if field["FK"]:
                 field["FK"] = [{"Name": fk["Name"], "Id": fk["Id"]} for fk in field["FK"]]
                 fk_data = field["FK"]
-                record[field["name"]] = next((fk["Name"] for fk in fk_data if fk["Id"] == record[field["name"]]), record[field["name"]])
-        print(record)
+                record[field["name"]] = next((fk["Id"] for fk in fk_data if fk["Id"] == record[field["name"]]), record[field["name"]])
+        print("RECORD",record)
         
 
     cursor.execute(f"SELECT `{primary_key_column}`, `{tablename}` FROM `{tablename}`")
@@ -401,7 +407,7 @@ def Undelete(tablename):
         # Fetch all records with IsDeleted = 'Y'
         cursor.execute(f"SELECT `{primary_key_column}`, `{display_column}` FROM `{tablename}` WHERE `IsDeleted` = 'Y'")
         records = cursor.fetchall()
-        print("Records:", records)  # Debugging: Check fetched records
+        
 
         # Initialize record_details
         record_details = None
@@ -412,7 +418,7 @@ def Undelete(tablename):
             if record_id:
                 cursor.execute(f"SELECT * FROM `{tablename}` WHERE `{primary_key_column}` = %s", (record_id,))
                 record_details = cursor.fetchone()
-                print("Record Details:", record_details)  # Debugging: Check fetched record details
+                
             else:
                 flash("Please select a valid record.", "danger")
 
@@ -436,12 +442,11 @@ def UndeleteSubmit(tablename):
 
         
         record_id = request.args.get("record_id") 
-        print("Recovered record_id",record_id)
-        
+       
 
         
         try:
-            print("did controll")
+            
             cursor.execute(f"UPDATE `{tablename}` SET `IsDeleted` = 'N' WHERE `{primary_key_column}` = %s", (record_id,))
             conn.commit()
             flash("Record recovered successfully.", "success")
